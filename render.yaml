@@ -1,0 +1,26 @@
+# Render Blueprint for IPL Auction Event Management
+# Single Web Service: backend serves built frontend same-origin.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ipl-auction
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build -w backend && npm run build -w frontend
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Build-time: frontend bundle uses same-origin /api (not localhost)
+      - key: VITE_API_URL
+        value: /api
+      # Secrets — entered once in Render dashboard (sync: false)
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
