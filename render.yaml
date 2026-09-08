@@ -6,7 +6,7 @@ services:
     name: ipl-auction
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build -w backend && npm run build -w frontend
+    buildCommand: npm install --include=dev && npm run build -w backend && npm run build -w frontend
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
