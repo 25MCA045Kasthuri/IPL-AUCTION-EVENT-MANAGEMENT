@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+
+# environment / secrets (never commit)
+.env
+.env.local
+.env.*.local
+!*.example
+
+# build output
+dist/
+build/
+
+# logs
+*.log
+npm-debug.log*
+logs/
+
+# test coverage / temp
+coverage/
+.tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# backups
+backups/
+
+# local mongo data
+.mongodb/
+
+# local tooling / session state (never commit)
+.env.save
+.codegraph
+.omo/
+.opencode/
+.playwright-mcp/
+.codex/
+opencode.json
+"IPL AUCTION WEBSITE TESTING(MCP)"
