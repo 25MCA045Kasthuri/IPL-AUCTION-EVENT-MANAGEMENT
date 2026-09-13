@@ -36,7 +36,7 @@ export interface PublicTeam {
 
 export interface PublicSnapshot {
   teams: PublicTeam[]
-  counts: { total: number; available: number; sold: number; unsold: number }
+  counts: { total: number; available: number; sold: number; unsold: number; unsoldQueue: number }
   rules: ReturnType<typeof getMinRequirements>
 }
 
@@ -83,13 +83,14 @@ export async function buildPublicSnapshot(): Promise<PublicSnapshot> {
 }
 
 export async function getPlayerCounts() {
-  const [total, available, sold, unsold] = await Promise.all([
+  const [total, available, sold, unsold, unsoldQueue] = await Promise.all([
     Player.countDocuments(),
     Player.countDocuments({ status: PlayerStatus.AVAILABLE }),
     Player.countDocuments({ status: PlayerStatus.SOLD }),
     Player.countDocuments({ status: PlayerStatus.UNSOLD }),
+    Player.countDocuments({ status: PlayerStatus.UNSOLD_QUEUE }),
   ])
-  return { total, available, sold, unsold }
+  return { total, available, sold, unsold: unsold + unsoldQueue, unsoldQueue }
 }
 
 export async function broadcastPublicUpdate() {

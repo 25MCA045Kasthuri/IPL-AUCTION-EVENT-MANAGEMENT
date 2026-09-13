@@ -24,6 +24,8 @@ export const exportData = asyncHandler(async (_req, res) => {
     Status: p.status,
     'Sold Price (Cr)': p.soldPrice ?? '',
     'Sold To': p.teamId ? (p.teamId as { shortName?: string }).shortName || (p.teamId as { name?: string }).name : '',
+    'Unsold Count': p.unsoldCount ?? 0,
+    'Queue Order': p.queueOrder ?? '',
   }))
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(playerRows), 'Players')
 
@@ -58,7 +60,7 @@ export const resetAuction = asyncHandler(async (req, res) => {
   }
 
   await Player.updateMany({}, {
-    $set: { status: PlayerStatus.AVAILABLE, teamId: null, soldPrice: null },
+    $set: { status: PlayerStatus.AVAILABLE, teamId: null, soldPrice: null, unsoldCount: 0, queueOrder: null },
   })
   await Team.updateMany({}, [
     { $set: { remainingPurse: '$initialPurse', playerCount: 0 } },
