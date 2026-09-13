@@ -11,6 +11,7 @@ export const PlayerStatus = {
   AVAILABLE: 'Available',
   SOLD: 'Sold',
   UNSOLD: 'Unsold',
+  UNSOLD_QUEUE: 'Unsold Queue',
 } as const
 
 export const PLAYER_STATUSES = Object.values(PlayerStatus)

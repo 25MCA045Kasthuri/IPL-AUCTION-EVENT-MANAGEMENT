@@ -12,6 +12,8 @@ export interface IPlayer {
   soldPrice: number | null
   teamId: mongoose.Types.ObjectId | null
   status: (typeof PLAYER_STATUSES)[number]
+  unsoldCount: number
+  queueOrder: number | null
   createdAt?: Date
   updatedAt?: Date
 }
@@ -30,11 +32,14 @@ const playerSchema = new Schema<PlayerDoc>(
     soldPrice: { type: Number, min: 0, default: null },
     teamId: { type: Schema.Types.ObjectId, ref: 'Team', default: null, index: true },
     status: { type: String, required: true, enum: PLAYER_STATUSES, default: 'Available', index: true },
+    unsoldCount: { type: Number, default: 0, min: 0 },
+    queueOrder: { type: Number, default: null },
   },
   { timestamps: true },
 )
 
 playerSchema.index({ status: 1, role: 1 })
+playerSchema.index({ status: 1, queueOrder: 1 })
 
 export const Player: Model<PlayerDoc> = mongoose.model<PlayerDoc>('Player', playerSchema)
 export type PlayerType = PlayerDoc
