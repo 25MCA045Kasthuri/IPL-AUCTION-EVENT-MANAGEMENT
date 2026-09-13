@@ -43,3 +43,23 @@ export const loginSchema = z.object({
   email: z.string().trim().email('Valid email required'),
   password: z.string().min(1, 'Password required'),
 })
+
+const RANK_ERR = 'Invalid rank filter value.'
+
+export const rankFilterSchema = z
+  .object({
+    rankFrom: z.coerce
+      .number({ message: RANK_ERR })
+      .int(RANK_ERR)
+      .min(1, RANK_ERR)
+      .optional(),
+    rankTo: z.coerce
+      .number({ message: RANK_ERR })
+      .int(RANK_ERR)
+      .min(1, RANK_ERR)
+      .optional(),
+  })
+  .refine((v) => v.rankFrom === undefined || v.rankTo === undefined || v.rankFrom <= v.rankTo, {
+    message: 'Rank From cannot be greater than Rank To.',
+    path: ['rankFrom'],
+  })

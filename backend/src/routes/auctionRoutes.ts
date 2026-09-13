@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { sellPlayer, undoSale, editSale, markUnsold } from '../controllers/auctionController.js'
+import { sellPlayer, undoSale, editSale, markUnsold, reauction } from '../controllers/auctionController.js'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { UserRole } from '../models/enums.js'
 
@@ -12,5 +12,6 @@ router.post('/sell', sellPlayer)
 router.post('/undo', undoSale)
 router.post('/edit', editSale)
 router.post('/unsold', markUnsold)
+router.post('/reauction', reauction)
 
 export default router

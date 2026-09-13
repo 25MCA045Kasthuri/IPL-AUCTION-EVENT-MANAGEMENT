@@ -25,3 +25,9 @@ export const markUnsold = asyncHandler(async (req, res) => {
   const result = await auctionService.markUnsold(input, req.user)
   res.json(result)
 })
+
+export const reauction = asyncHandler(async (req, res) => {
+  const input = unsoldSchema.parse({ playerId: req.params.id || req.body.playerId })
+  const result = await auctionService.reauction(input, req.user)
+  res.json(result)
+})
