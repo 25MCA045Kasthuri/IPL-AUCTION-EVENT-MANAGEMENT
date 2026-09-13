@@ -23,13 +23,6 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
-async function ensurePlayer(id: string) {
-  if (!mongoose.isValidObjectId(id)) throw new AppError('Invalid player id', 400)
-  const player = await Player.findById(id)
-  if (!player) throw new AppError('Player not found', 404)
-  return player
-}
-
 export async function sellPlayer(
   input: { playerId: string; soldPrice: number; teamShortName: string },
   user?: UserInfo,
@@ -239,22 +232,92 @@ export async function editSale(
 }
 
 export async function markUnsold(input: { playerId: string }, user?: UserInfo) {
-  const player = await ensurePlayer(input.playerId)
-  if (player.status === PlayerStatus.SOLD) {
-    throw new AppError(`Player "${player.name}" is sold; undo the sale first`, 409)
-  }
-  const prevStatus = player.status
-  player.status = PlayerStatus.UNSOLD
-  await player.save()
+  const session = await mongoose.startSession()
+  try {
+    await session.withTransaction(async () => {
+      const player = await Player.findById(input.playerId).session(session)
+      if (!player) throw new AppError('Player not found', 404)
+      if (player.status === PlayerStatus.SOLD) {
+        throw new AppError(`Player "${player.name}" is sold; undo the sale first`, 409)
+      }
+      if (player.status === PlayerStatus.UNSOLD_QUEUE) {
+        throw new AppError(`Player "${player.name}" is already in the unsold queue`, 409)
+      }
 
-  await AuctionTransaction.create({
-    playerId: player._id,
-    playerName: player.name,
-    action: 'UNSOLD',
-    previousStatus: prevStatus,
-    newStatus: PlayerStatus.UNSOLD,
-    performedBy: actorLabel(user),
-  })
-  await broadcastPlayerEvent({ type: 'marked-unsold', playerId: input.playerId })
-  return { message: `Player "${player.name}" marked unsold` }
+      const prevStatus = player.status
+
+      // FIFO: append to the END of the queue — next position = current max + 1.
+      const maxQueue = await Player.findOne({ status: PlayerStatus.UNSOLD_QUEUE })
+        .sort({ queueOrder: -1 })
+        .session(session)
+      const nextQueueOrder = (maxQueue?.queueOrder ?? 0) + 1
+
+      player.status = PlayerStatus.UNSOLD_QUEUE
+      player.queueOrder = nextQueueOrder
+      player.unsoldCount = (player.unsoldCount ?? 0) + 1
+      await player.save({ session })
+
+      await AuctionTransaction.create(
+        [
+          {
+            playerId: player._id,
+            playerName: player.name,
+            action: 'UNSOLD',
+            previousStatus: prevStatus,
+            newStatus: PlayerStatus.UNSOLD_QUEUE,
+            performedBy: actorLabel(user),
+          },
+        ],
+        { session },
+      )
+    })
+    await broadcastPlayerEvent({ type: 'marked-unsold', playerId: input.playerId })
+    const player = await Player.findById(input.playerId)
+    return { message: `Player "${player?.name}" added to Unsold Queue` }
+  } finally {
+    await session.endSession()
+  }
+}
+
+export async function reauction(input: { playerId: string }, user?: UserInfo) {
+  const session = await mongoose.startSession()
+  try {
+    await session.withTransaction(async () => {
+      const player = await Player.findById(input.playerId).session(session)
+      if (!player) throw new AppError('Player not found', 404)
+      if (player.status !== PlayerStatus.UNSOLD_QUEUE) {
+        throw new AppError(`Player "${player.name}" is not in the unsold queue`, 409)
+      }
+
+      player.status = PlayerStatus.AVAILABLE
+      player.queueOrder = null
+      player.teamId = null
+      player.soldPrice = null
+      // Do NOT reset unsoldCount — history is preserved.
+      await player.save({ session })
+
+      await AuctionTransaction.create(
+        [
+          {
+            playerId: player._id,
+            playerName: player.name,
+            action: 'REAUCTION',
+            previousStatus: PlayerStatus.UNSOLD_QUEUE,
+            newStatus: PlayerStatus.AVAILABLE,
+            previousTeamId: null,
+            newTeamId: null,
+            previousPrice: null,
+            newPrice: null,
+            performedBy: actorLabel(user),
+          },
+        ],
+        { session },
+      )
+    })
+    await broadcastPlayerEvent({ type: 'reauctioned', playerId: input.playerId })
+    const player = await Player.findById(input.playerId)
+    return { message: `Player "${player?.name}" moved back to auction` }
+  } finally {
+    await session.endSession()
+  }
 }

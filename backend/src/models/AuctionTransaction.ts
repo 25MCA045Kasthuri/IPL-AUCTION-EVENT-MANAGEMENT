@@ -8,7 +8,7 @@ const auctionTransactionSchema = new Schema(
     action: {
       type: String,
       required: true,
-      enum: ['SOLD', 'UNSOLD', 'EDIT', 'UNDO', 'MOVE', 'IMPORT'],
+      enum: ['SOLD', 'UNSOLD', 'EDIT', 'UNDO', 'MOVE', 'IMPORT', 'REAUCTION'],
     },
     previousStatus: { type: String, enum: PLAYER_STATUSES, default: null },
     newStatus: { type: String, enum: PLAYER_STATUSES, default: null },
