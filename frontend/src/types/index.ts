@@ -1,5 +1,5 @@
 export type PlayerRole = 'Batsman' | 'Bowler' | 'All-Rounder' | 'Wicketkeeper'
-export type PlayerStatus = 'Available' | 'Sold' | 'Unsold'
+export type PlayerStatus = 'Available' | 'Sold' | 'Unsold' | 'Unsold Queue'
 
 export interface Player {
   _id: string
@@ -13,6 +13,8 @@ export interface Player {
   soldPrice: number | null
   teamId: string | null
   status: PlayerStatus
+  unsoldCount?: number
+  queueOrder?: number | null
   createdAt?: string
   updatedAt?: string
 }
@@ -58,7 +60,7 @@ export interface LiveTeam {
 
 export interface LiveSnapshot {
   teams: LiveTeam[]
-  counts: { total: number; available: number; sold: number; unsold: number }
+  counts: { total: number; available: number; sold: number; unsold: number; unsoldQueue: number }
   rules: {
     total: number
     maxTotal: number
