@@ -5,7 +5,7 @@ import { AuctionTransaction } from '../models/AuctionTransaction.js'
 import { PlayerStatus } from '../models/enums.js'
 import { config } from '../config/index.js'
 import { AppError } from '../utils/errors.js'
-import { broadcastPlayerEvent } from '../sockets/events.js'
+import { broadcastPlayerEvent, broadcastPublicUpdateInner } from '../sockets/events.js'
 
 const MAX_TEAM_PLAYERS = config.maxSquadPlayers
 
@@ -317,6 +317,53 @@ export async function reauction(input: { playerId: string }, user?: UserInfo) {
     await broadcastPlayerEvent({ type: 'reauctioned', playerId: input.playerId })
     const player = await Player.findById(input.playerId)
     return { message: `Player "${player?.name}" moved back to auction` }
+  } finally {
+    await session.endSession()
+  }
+}
+
+export async function reauctionAll(user?: UserInfo) {
+  const session = await mongoose.startSession()
+  try {
+    const { updatedCount } = await session.withTransaction(async () => {
+      const queued = await Player.find({ status: PlayerStatus.UNSOLD_QUEUE })
+        .sort({ queueOrder: 1 })
+        .session(session)
+      if (queued.length === 0) return { updatedCount: 0 }
+
+      await Player.updateMany(
+        { status: PlayerStatus.UNSOLD_QUEUE },
+        {
+          $set: {
+            status: PlayerStatus.AVAILABLE,
+            queueOrder: null,
+            teamId: null,
+            soldPrice: null,
+            // Do NOT reset unsoldCount — history is preserved.
+          },
+        },
+      ).session(session)
+
+      await AuctionTransaction.insertMany(
+        queued.map((p) => ({
+          playerId: p._id,
+          playerName: p.name,
+          action: 'REAUCTION',
+          previousStatus: PlayerStatus.UNSOLD_QUEUE,
+          newStatus: PlayerStatus.AVAILABLE,
+          previousTeamId: null,
+          newTeamId: null,
+          previousPrice: null,
+          newPrice: null,
+          performedBy: actorLabel(user),
+        })),
+        { session },
+      )
+
+      return { updatedCount: queued.length }
+    })
+    await broadcastPublicUpdateInner()
+    return { success: true, updatedCount }
   } finally {
     await session.endSession()
   }

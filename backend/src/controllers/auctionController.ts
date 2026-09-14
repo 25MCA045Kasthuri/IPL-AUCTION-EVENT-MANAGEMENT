@@ -31,3 +31,8 @@ export const reauction = asyncHandler(async (req, res) => {
   const result = await auctionService.reauction(input, req.user)
   res.json(result)
 })
+
+export const reauctionAll = asyncHandler(async (_req, res) => {
+  const result = await auctionService.reauctionAll(_req.user)
+  res.json(result)
+})

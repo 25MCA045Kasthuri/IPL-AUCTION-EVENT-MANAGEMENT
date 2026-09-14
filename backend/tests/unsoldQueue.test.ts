@@ -3,7 +3,7 @@ import request from 'supertest'
 import { connect, disconnect, cleanDB, createPlayer, seedTeams, getTeamByShort, buildApp, createUser } from './helpers.js'
 import { PlayerStatus, PLAYER_STATUSES, UserRole } from '../src/models/enums.js'
 import { Player } from '../src/models/Player.js'
-import { markUnsold, reauction, sellPlayer } from '../src/services/auctionService.js'
+import { markUnsold, reauction, reauctionAll, sellPlayer } from '../src/services/auctionService.js'
 import { getPlayerCounts } from '../src/services/publicDataService.js'
 
 let app: ReturnType<typeof buildApp>
@@ -299,6 +299,102 @@ describe('Unsold Queue + rank filter — API (TEST 5, 6, validation 400s)', () =
       .set('Authorization', `Bearer ${token}`)
       .send({ playerId: String(a._id) })
     expect(res.status).toBe(403)
+  })
+})
+
+describe('Unsold Queue — bulk re-auction all', () => {
+  it('moves every queued player to Available, clears the queue, and preserves unsoldCount', async () => {
+    const a = await createPlayer({ name: 'Player A' })
+    const b = await createPlayer({ name: 'Player B' })
+    const c = await createPlayer({ name: 'Player C' })
+    await markUnsold({ playerId: String(a._id) })
+    await markUnsold({ playerId: String(b._id) })
+    await markUnsold({ playerId: String(c._id) })
+    expect(await Player.countDocuments({ status: PlayerStatus.UNSOLD_QUEUE })).toBe(3)
+
+    const result = await reauctionAll()
+
+    expect(result.updatedCount).toBe(3)
+    const queue = await Player.find({ status: PlayerStatus.UNSOLD_QUEUE }).lean()
+    expect(queue).toHaveLength(0)
+    for (const p of [a, b, c]) {
+      const reloaded = await Player.findById(p._id).lean()
+      expect(reloaded!.status).toBe(PlayerStatus.AVAILABLE)
+      expect(reloaded!.queueOrder).toBeNull()
+      expect(reloaded!.unsoldCount).toBe(1)
+    }
+  })
+
+  it('preserves unsold history — an unsold-again player after bulk re-auction increments to 2', async () => {
+    const a = await createPlayer({ name: 'Player A' })
+    await markUnsold({ playerId: String(a._id) })
+    await reauctionAll()
+
+    await markUnsold({ playerId: String(a._id) })
+
+    const reloaded = await Player.findById(a._id).lean()
+    expect(reloaded!.status).toBe(PlayerStatus.UNSOLD_QUEUE)
+    expect(reloaded!.unsoldCount).toBe(2)
+  })
+
+  it('does not touch SOLD players or their team/price state', async () => {
+    const sold = await createPlayer({ name: 'Sold Guy' })
+    await sellPlayer({ playerId: String(sold._id), soldPrice: 5, teamShortName: 'CSK' })
+    const queued = await createPlayer({ name: 'Queued Guy' })
+    await markUnsold({ playerId: String(queued._id) })
+
+    await reauctionAll()
+
+    const reloadedSold = await Player.findById(sold._id).lean()
+    expect(reloadedSold!.status).toBe(PlayerStatus.SOLD)
+    expect(reloadedSold!.soldPrice).toBe(5)
+    expect(reloadedSold!.teamId).not.toBeNull()
+    expect(reloadedSold!.unsoldCount).toBe(0)
+    const reloadedQueued = await Player.findById(queued._id).lean()
+    expect(reloadedQueued!.status).toBe(PlayerStatus.AVAILABLE)
+  })
+
+  it('returns updatedCount 0 when the queue is empty', async () => {
+    const result = await reauctionAll()
+    expect(result.updatedCount).toBe(0)
+  })
+
+  it('API: POST /api/auction/reauction-all moves all queued players and returns updatedCount', async () => {
+    const token = await adminToken()
+    const a = await createPlayer({ name: 'Queue A' })
+    const b = await createPlayer({ name: 'Queue B' })
+    await markUnsold({ playerId: String(a._id) })
+    await markUnsold({ playerId: String(b._id) })
+
+    const res = await request(app).post('/api/auction/reauction-all').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.success).toBe(true)
+    expect(res.body.updatedCount).toBe(2)
+    expect(await Player.countDocuments({ status: PlayerStatus.UNSOLD_QUEUE })).toBe(0)
+  })
+
+  it('rejects bulk re-auction for a conductor (403, admin-only)', async () => {
+    await createUser(UserRole.CONDUCTOR, 'cond@test.com', 'Passw0rd!')
+    const login = await request(app).post('/api/auth/login').send({ email: 'cond@test.com', password: 'Passw0rd!' })
+    const token = login.body.data.token as string
+
+    const res = await request(app).post('/api/auction/reauction-all').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(403)
+  })
+
+  it('individual reauction still works after bulk re-auction exists', async () => {
+    const a = await createPlayer({ name: 'Player A' })
+    const b = await createPlayer({ name: 'Player B' })
+    await markUnsold({ playerId: String(a._id) })
+    await markUnsold({ playerId: String(b._id) })
+
+    await reauction({ playerId: String(a._id) })
+
+    const queue = await Player.find({ status: PlayerStatus.UNSOLD_QUEUE }).sort({ queueOrder: 1 }).lean()
+    expect(queue.map((p) => p.name)).toEqual(['Player B'])
+    expect((await Player.findById(a._id).lean())!.status).toBe(PlayerStatus.AVAILABLE)
   })
 })
 
