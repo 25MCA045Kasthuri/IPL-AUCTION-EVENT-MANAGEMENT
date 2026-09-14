@@ -31,6 +31,7 @@ export default function Admin() {
   const [rankTo, setRankTo] = useState(data.filters.rankTo)
   const [rankError, setRankError] = useState<string | null>(null)
   const [reauctioning, setReauctioning] = useState<string | null>(null)
+  const [reauctioningAll, setReauctioningAll] = useState(false)
 
   const notify = (msg: string) => {
     setToast(msg)
@@ -88,6 +89,27 @@ export default function Admin() {
       setErr(e instanceof ApiError ? e.message : 'Action failed')
     } finally {
       setReauctioning(null)
+    }
+  }
+
+  const reauctionAll = async () => {
+    const count = data.unsoldQueue.length
+    if (count === 0) return
+    if (
+      !window.confirm(`Re-auction all ${count} unsold players?\n\nAll players currently in the Unsold Queue will be moved back to Available.`)
+    ) {
+      return
+    }
+    setErr(null)
+    setReauctioningAll(true)
+    try {
+      const res = await api.post<{ success: boolean; updatedCount: number }>('/auction/reauction-all')
+      notify(`${res.updatedCount} players moved back to Available.`)
+    } catch (e) {
+      console.error('reauction-all failed:', e)
+      setErr(e instanceof ApiError ? e.message : 'Could not re-auction all players. Please try again.')
+    } finally {
+      setReauctioningAll(false)
     }
   }
 
@@ -303,7 +325,18 @@ export default function Admin() {
               <h2 className="text-lg font-bold">Unsold Queue</h2>
               <p className="text-xs text-slate-400">Players marked unsold, in FIFO order — re-auction from the front of the queue.</p>
             </div>
-            <span className="text-xs text-slate-500">{data.unsoldQueue.length} in queue</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">{data.unsoldQueue.length} in queue</span>
+              {isAdmin && (
+                <button
+                  onClick={reauctionAll}
+                  disabled={reauctioningAll || data.unsoldQueue.length === 0}
+                  className="rounded bg-yellow-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {reauctioningAll ? 'Re-auctioning…' : 'Re-auction All Players'}
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-[360px] overflow-auto rounded-lg border border-slate-800">
             <table className="w-full text-left text-sm">
