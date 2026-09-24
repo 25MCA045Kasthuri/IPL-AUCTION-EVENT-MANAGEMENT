@@ -6,6 +6,12 @@ export interface IPlayer {
   role: (typeof PLAYER_ROLES)[number]
   nationality: string
   isOverseas: boolean
+  matches: number
+  runs: number
+  battingAverage: number
+  strikeRate: number
+  wickets: number
+  economy: number | null
   ranking: number
   basePrice: number
   importOrder: number
@@ -26,6 +32,14 @@ const playerSchema = new Schema<PlayerDoc>(
     role: { type: String, required: true, enum: PLAYER_ROLES, index: true },
     nationality: { type: String, required: true, trim: true, default: 'India' },
     isOverseas: { type: Boolean, required: true, default: false, index: true },
+    // Performance stats (optional, defaulted so Excel-imported and manually
+    // entered players share the identical document structure).
+    matches: { type: Number, min: 0, default: 0 },
+    runs: { type: Number, min: 0, default: 0 },
+    battingAverage: { type: Number, min: 0, default: 0 },
+    strikeRate: { type: Number, min: 0, default: 0 },
+    wickets: { type: Number, min: 0, default: 0 },
+    economy: { type: Number, min: 0, default: null },
     ranking: { type: Number, required: true, min: 0, default: 0 },
     basePrice: { type: Number, required: true, min: 0, default: 0 },
     importOrder: { type: Number, default: 0, index: true },

@@ -5,6 +5,7 @@ import { api, ApiError } from '../services/api'
 import TeamPursePanel from '../components/TeamPursePanel'
 import SellModal from '../components/SellModal'
 import ImportWizard from '../components/ImportWizard'
+import AddPlayerModal from '../components/AddPlayerModal'
 import TransactionHistory from '../components/TransactionHistory'
 import WeightConfig from '../components/WeightConfig'
 import ResetPanel from '../components/ResetPanel'
@@ -32,6 +33,7 @@ export default function Admin() {
   const [rankError, setRankError] = useState<string | null>(null)
   const [reauctioning, setReauctioning] = useState<string | null>(null)
   const [reauctioningAll, setReauctioningAll] = useState(false)
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false)
 
   const notify = (msg: string) => {
     setToast(msg)
@@ -151,7 +153,7 @@ export default function Admin() {
         {isAdmin && (
           <>
             <div className="mb-6">
-              <ImportWizard onImported={notify} />
+              <ImportWizard onImported={notify} onAddManual={() => setAddPlayerOpen(true)} />
             </div>
 
             <div className="mb-6">
@@ -407,6 +409,7 @@ export default function Admin() {
       {modal && (
         <SellModal player={modal.player} teams={data.teams} mode={modal.mode} onClose={() => setModal(null)} onDone={notify} />
       )}
+      {addPlayerOpen && <AddPlayerModal onClose={() => setAddPlayerOpen(false)} onDone={notify} />}
     </div>
   )
 }

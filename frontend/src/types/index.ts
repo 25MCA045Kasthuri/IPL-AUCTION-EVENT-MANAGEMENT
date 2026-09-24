@@ -7,6 +7,12 @@ export interface Player {
   role: PlayerRole
   nationality: string
   isOverseas: boolean
+  matches?: number
+  runs?: number
+  battingAverage?: number
+  strikeRate?: number
+  wickets?: number
+  economy?: number | null
   ranking: number
   basePrice: number
   importOrder?: number
@@ -17,6 +23,20 @@ export interface Player {
   queueOrder?: number | null
   createdAt?: string
   updatedAt?: string
+}
+
+export interface ManualPlayerInput {
+  name: string
+  role: PlayerRole
+  nationality: string
+  matches: number
+  runs: number
+  battingAverage: number
+  strikeRate: number
+  wickets: number
+  economy: number | null
+  ranking: number
+  basePrice: number
 }
 
 export interface Team {

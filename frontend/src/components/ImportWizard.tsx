@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, uploadForm, ApiError, API_BASE } from '../services/api'
 import type { ImportRow } from '../types'
 
-export default function ImportWizard({ onImported }: { onImported: (msg: string) => void }) {
+export default function ImportWizard({ onImported, onAddManual }: { onImported: (msg: string) => void; onAddManual?: () => void }) {
   const [rows, setRows] = useState<ImportRow[] | null>(null)
   const [usedColumns, setUsedColumns] = useState<string[]>([])
   const [fileName, setFileName] = useState('')
@@ -70,6 +70,14 @@ export default function ImportWizard({ onImported }: { onImported: (msg: string)
         >
           Download template
         </a>
+        {onAddManual && (
+          <button
+            onClick={onAddManual}
+            className="rounded-lg border border-yellow-400/60 px-3 py-2 text-sm font-semibold text-yellow-300 hover:bg-yellow-400/10"
+          >
+            + Add Player Manually
+          </button>
+        )}
       </div>
 
       {busy && !rows && <p className="mt-3 text-sm text-slate-400">Reading spreadsheet...</p>}

@@ -1,7 +1,8 @@
 import { Player } from '../models/Player.js'
-import { PlayerStatus } from '../models/enums.js'
+import { PlayerStatus, isOverseas } from '../models/enums.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
-import { rankFilterSchema } from '../validators/index.js'
+import { rankFilterSchema, manualPlayerSchema } from '../validators/index.js'
+import { AppError } from '../utils/errors.js'
 
 export const listPlayers = asyncHandler(async (req, res) => {
   const { search, role, status, team, page, limit, rankFrom, rankTo } = req.query as Record<string, string>
@@ -56,7 +57,25 @@ export const listUnsoldQueue = asyncHandler(async (_req, res) => {
 })
 
 export const createPlayer = asyncHandler(async (req, res) => {
-  const player = await Player.create(req.body)
+  const input = manualPlayerSchema.parse(req.body)
+
+  const existingName = await Player.findOne({
+    name: { $regex: `^${input.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+  })
+  if (existingName) throw new AppError('Player already exists.', 409)
+
+  const existingRanking = await Player.findOne({ ranking: input.ranking })
+  if (existingRanking) throw new AppError('IPL Ranking already assigned to another player.', 409)
+
+  const lastPlayer = await Player.findOne().sort({ importOrder: -1 }).select('importOrder').lean()
+  const player = await Player.create({
+    ...input,
+    isOverseas: isOverseas(input.nationality),
+    status: PlayerStatus.AVAILABLE,
+    importOrder: (lastPlayer?.importOrder ?? 0) + 1,
+    unsoldCount: 0,
+    queueOrder: null,
+  })
   res.status(201).json({ success: true, data: player })
 })
 
