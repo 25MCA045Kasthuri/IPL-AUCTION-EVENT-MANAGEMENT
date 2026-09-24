@@ -14,6 +14,9 @@ export const PlayerStatus = {
   UNSOLD_QUEUE: 'Unsold Queue',
 } as const
 
+export const IPL_RANKING_MAX = 150
+export const MAX_PLAYERS = 150
+
 export const PLAYER_STATUSES = Object.values(PlayerStatus)
 
 export const UserRole = {

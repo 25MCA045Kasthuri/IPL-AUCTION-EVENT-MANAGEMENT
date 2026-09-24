@@ -1,8 +1,9 @@
 import { Player } from '../models/Player.js'
-import { PlayerStatus, isOverseas } from '../models/enums.js'
+import { PlayerStatus, MAX_PLAYERS, isOverseas } from '../models/enums.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
 import { rankFilterSchema, manualPlayerSchema } from '../validators/index.js'
 import { AppError } from '../utils/errors.js'
+import { broadcastPublicUpdateInner } from '../sockets/events.js'
 
 export const listPlayers = asyncHandler(async (req, res) => {
   const { search, role, status, team, page, limit, rankFrom, rankTo } = req.query as Record<string, string>
@@ -59,6 +60,9 @@ export const listUnsoldQueue = asyncHandler(async (_req, res) => {
 export const createPlayer = asyncHandler(async (req, res) => {
   const input = manualPlayerSchema.parse(req.body)
 
+  const totalPlayers = await Player.countDocuments()
+  if (totalPlayers >= MAX_PLAYERS) throw new AppError(`Maximum player limit of ${MAX_PLAYERS} reached.`, 400)
+
   const existingName = await Player.findOne({
     name: { $regex: `^${input.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
   })
@@ -76,6 +80,7 @@ export const createPlayer = asyncHandler(async (req, res) => {
     unsoldCount: 0,
     queueOrder: null,
   })
+  await broadcastPublicUpdateInner()
   res.status(201).json({ success: true, data: player })
 })
 
@@ -86,6 +91,14 @@ export const updatePlayer = asyncHandler(async (req, res) => {
 })
 
 export const deletePlayer = asyncHandler(async (req, res) => {
+  const player = await Player.findById(req.params.id)
+  if (!player) return res.status(404).json({ success: false, message: 'Player not found' })
+
+  if (player.status === PlayerStatus.SOLD) {
+    throw new AppError('This player is already sold. Reset/undo the player\'s sale before deleting.', 409)
+  }
+
   await Player.findByIdAndDelete(req.params.id)
+  await broadcastPublicUpdateInner()
   res.json({ success: true, message: 'Player deleted' })
 })

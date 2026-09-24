@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PLAYER_ROLES } from '../models/enums.js'
+import { IPL_RANKING_MAX, PLAYER_ROLES } from '../models/enums.js'
 
 export const playerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
@@ -27,7 +27,11 @@ export const manualPlayerSchema = z.object({
     },
     z.union([z.null(), z.coerce.number().min(0, 'Economy cannot be negative')]),
   ),
-  ranking: z.coerce.number().int('IPL Ranking must be a whole number').min(1, 'IPL Ranking must be at least 1').max(110, 'IPL Ranking cannot exceed 110'),
+  ranking: z.coerce
+    .number()
+    .int('IPL Ranking must be a whole number')
+    .min(1, 'IPL Ranking must be at least 1')
+    .max(IPL_RANKING_MAX, `IPL Ranking cannot exceed ${IPL_RANKING_MAX}`),
   basePrice: z.coerce.number().refine((v) => (BASE_PRICE_TIERS as readonly number[]).includes(v), { message: 'Invalid base price' }),
 })
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '../services/api'
-import type { ManualPlayerInput, PlayerRole } from '../types'
+import type { ManualPlayerInput, Player, PlayerRole } from '../types'
+
+const IPL_RANKING_MAX = 150
 
 interface Props {
   onClose: () => void
@@ -54,6 +56,23 @@ export default function AddPlayerModal({ onClose, onDone }: Props) {
   const [form, setForm] = useState(EMPTY)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [nextRank, setNextRank] = useState<number | null>(null)
+
+  useEffect(() => {
+    api
+      .get<{ data: Player[] }>('/players')
+      .then(({ data }) => {
+        const used = new Set(data.map((p) => p.ranking))
+        for (let r = 1; r <= IPL_RANKING_MAX; r++) {
+          if (!used.has(r)) {
+            setNextRank(r)
+            return
+          }
+        }
+        setNextRank(null)
+      })
+      .catch(() => setNextRank(null))
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -76,8 +95,8 @@ export default function AddPlayerModal({ onClose, onDone }: Props) {
     const name = form.name.trim()
     if (!name) return setError('Player name is required.')
     const ranking = Number(form.ranking)
-    if (!Number.isInteger(ranking) || ranking < 1 || ranking > 110) {
-      return setError('IPL Ranking must be a whole number from 1 to 110.')
+    if (!Number.isInteger(ranking) || ranking < 1 || ranking > IPL_RANKING_MAX) {
+      return setError(`IPL Ranking must be a whole number from 1 to ${IPL_RANKING_MAX}.`)
     }
     const payload: ManualPlayerInput = {
       name,
@@ -175,8 +194,14 @@ export default function AddPlayerModal({ onClose, onDone }: Props) {
               <input value={form.economy} onChange={(e) => set('economy', e.target.value)} placeholder="-" className={field} />
             </div>
             <div>
-              <label className={label}>IPL Ranking (1–110) *</label>
-              <input type="number" min={1} max={110} value={form.ranking} onChange={(e) => set('ranking', e.target.value)} className={field} />
+              <label className={label}>IPL Ranking (1–{IPL_RANKING_MAX}) *</label>
+              <input type="number" min={1} max={IPL_RANKING_MAX} value={form.ranking} onChange={(e) => set('ranking', e.target.value)} className={field} />
+              {nextRank !== null && (
+                <p className="mt-1 text-xs text-yellow-400/90">Next available ranking: {nextRank}</p>
+              )}
+              {nextRank === null && (
+                <p className="mt-1 text-xs text-red-400">No rankings available — all 1–{IPL_RANKING_MAX} are occupied.</p>
+              )}
             </div>
             <div>
               <label className={label}>Base Price</label>

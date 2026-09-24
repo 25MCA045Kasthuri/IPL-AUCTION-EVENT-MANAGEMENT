@@ -34,6 +34,8 @@ export default function Admin() {
   const [reauctioning, setReauctioning] = useState<string | null>(null)
   const [reauctioningAll, setReauctioningAll] = useState(false)
   const [addPlayerOpen, setAddPlayerOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Player | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   const notify = (msg: string) => {
     setToast(msg)
@@ -112,6 +114,30 @@ export default function Admin() {
       setErr(e instanceof ApiError ? e.message : 'Could not re-auction all players. Please try again.')
     } finally {
       setReauctioningAll(false)
+    }
+  }
+
+  const requestDelete = (player: Player) => {
+    setErr(null)
+    if (player.status === 'Sold') {
+      setErr("This player is already sold. Reset/undo the player's sale before deleting.")
+      return
+    }
+    setDeleteTarget(player)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
+    setErr(null)
+    try {
+      await api.del(`/players/${deleteTarget._id}`)
+      setDeleteTarget(null)
+      notify(`${deleteTarget.name} deleted permanently.`)
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not delete player. Please try again.')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -215,7 +241,7 @@ export default function Admin() {
                 min={1}
                 value={rankTo}
                 onChange={(e) => setRankTo(e.target.value)}
-                placeholder="120"
+                placeholder="150"
                 className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white outline-none focus:border-yellow-400"
               />
             </div>
@@ -309,6 +335,13 @@ export default function Admin() {
                                 Unsold
                               </button>
                             )}
+                            <button
+                              onClick={() => requestDelete(p)}
+                              className="rounded bg-red-800 px-2 py-1 text-xs font-bold text-white hover:bg-red-700"
+                              title="Delete player permanently"
+                            >
+                              Delete
+                            </button>
                           </div>
                         )}
                       </td>
@@ -410,6 +443,36 @@ export default function Admin() {
         <SellModal player={modal.player} teams={data.teams} mode={modal.mode} onClose={() => setModal(null)} onDone={notify} />
       )}
       {addPlayerOpen && <AddPlayerModal onClose={() => setAddPlayerOpen(false)} onDone={notify} />}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => !deleteBusy && setDeleteTarget(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-red-800 bg-slate-900 p-6 text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-red-300">Delete Player?</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-white">{deleteTarget.name}</span>? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteBusy}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteBusy}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteBusy ? 'Deleting...' : 'Delete Player'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

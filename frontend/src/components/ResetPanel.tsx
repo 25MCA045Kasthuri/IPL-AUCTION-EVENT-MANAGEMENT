@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, ApiError, downloadFile } from '../services/api'
 
 export default function ResetPanel({ onDone }: { onDone: (msg: string) => void }) {
-  const [confirmText, setConfirmText] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -18,14 +18,10 @@ export default function ResetPanel({ onDone }: { onDone: (msg: string) => void }
 
   const reset = async () => {
     setErr(null)
-    if (confirmText.trim().toUpperCase() !== 'RESET AUCTION') {
-      setErr('Type RESET AUCTION exactly to confirm.')
-      return
-    }
     setBusy(true)
     try {
       await api.post('/admin/reset', { confirmation: 'RESET AUCTION' })
-      setConfirmText('')
+      setConfirmOpen(false)
       onDone('Auction reset. All players are Available, purses restored to ₹90 Cr.')
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Reset failed')
@@ -44,27 +40,50 @@ export default function ResetPanel({ onDone }: { onDone: (msg: string) => void }
         >
           ⬇ Export Backup (Excel)
         </button>
-      </div>
-      <p className="mb-2 mt-4 text-xs text-slate-400">
-        Warning: this resets all players to Available and restores every team purse. Type{' '}
-        <strong className="text-white">RESET AUCTION</strong> to confirm.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={confirmText}
-          onChange={(e) => setConfirmText(e.target.value)}
-          placeholder="Type RESET AUCTION"
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-        />
         <button
-          onClick={reset}
+          onClick={() => setConfirmOpen(true)}
           disabled={busy}
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500 disabled:opacity-50"
         >
-          {busy ? 'Resetting...' : 'Reset Auction'}
+          Reset All Players
         </button>
       </div>
+      <p className="mb-2 mt-4 text-xs text-slate-400">
+        Reset All Players restores the auction to its initial state: every player becomes Available, team purses
+        return to ₹90 Cr, and the Unsold Queue is cleared. Player information is <strong className="text-white">NOT deleted</strong>.
+      </p>
       {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => !busy && setConfirmOpen(false)}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-red-800 bg-slate-900 p-6 text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-red-300">Reset all players?</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              This will reset auction status, restore team purses, and clear the Unsold Queue. Player information
+              will NOT be deleted.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={busy}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={reset}
+                disabled={busy}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? 'Resetting...' : 'Reset All Players'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

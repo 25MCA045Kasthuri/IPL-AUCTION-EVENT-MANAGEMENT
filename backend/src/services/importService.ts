@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import { Player } from '../models/Player.js'
-import { PlayerRole, PlayerStatus, PLAYER_ROLES, isOverseas } from '../models/enums.js'
+import { PlayerRole, PlayerStatus, MAX_PLAYERS, PLAYER_ROLES, isOverseas } from '../models/enums.js'
 import { AppError } from '../utils/errors.js'
 
 export interface ImportRow {
@@ -186,6 +186,8 @@ export async function confirmImport(rows: ImportRow[]) {
   let skippedDuplicates = 0
   const errors: string[] = []
 
+  const totalInDbBefore = await Player.countDocuments()
+
   for (const row of valid) {
     const existing = await Player.findOne({ name: row.name })
     const payload = {
@@ -203,10 +205,16 @@ export async function confirmImport(rows: ImportRow[]) {
         skippedDuplicates += 1
         continue
       }
+      // Updating an existing player never grows the roster, so it is always
+      // allowed even when the player cap has been reached.
       existing.set(payload)
       await existing.save()
       updated += 1
     } else {
+      if (totalInDbBefore + inserted >= MAX_PLAYERS) {
+        errors.push(`Maximum player limit of ${MAX_PLAYERS} reached. Skipped "${row.name}" (${row.ranking}).`)
+        continue
+      }
       await Player.create({ ...payload, status: PlayerStatus.AVAILABLE })
       inserted += 1
     }
